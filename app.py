@@ -3,18 +3,18 @@ import streamlit as st
 
 
 # =========================================================
-# 기본 설정
+# Streamlit 설정
 # =========================================================
 
 st.set_page_config(
-    page_title="잊혀진 던전",
+    page_title="잊혀진 던전 RPG",
     page_icon="⚔️",
     layout="centered"
 )
 
 
 # =========================================================
-# 상점 아이템
+# 게임 데이터
 # =========================================================
 
 SHOP_ITEMS = {
@@ -123,16 +123,12 @@ SHOP_ITEMS = {
 }
 
 
-# =========================================================
-# 일반 몬스터
-# =========================================================
-
 ENEMIES = [
 
     {
         "name": "슬라임",
-        "hp": 30,
-        "attack": 7,
+        "hp": 35,
+        "attack": 8,
         "defense": 2,
         "coins": 20,
         "exp": 15
@@ -140,8 +136,8 @@ ENEMIES = [
 
     {
         "name": "고블린",
-        "hp": 45,
-        "attack": 10,
+        "hp": 50,
+        "attack": 11,
         "defense": 4,
         "coins": 35,
         "exp": 25
@@ -149,8 +145,8 @@ ENEMIES = [
 
     {
         "name": "해골 전사",
-        "hp": 70,
-        "attack": 14,
+        "hp": 75,
+        "attack": 15,
         "defense": 7,
         "coins": 55,
         "exp": 40
@@ -158,18 +154,14 @@ ENEMIES = [
 
     {
         "name": "오크",
-        "hp": 100,
-        "attack": 20,
+        "hp": 110,
+        "attack": 21,
         "defense": 10,
         "coins": 90,
         "exp": 60
     }
 ]
 
-
-# =========================================================
-# 보스
-# =========================================================
 
 BOSSES = [
 
@@ -202,10 +194,6 @@ BOSSES = [
 ]
 
 
-# =========================================================
-# 스킬
-# =========================================================
-
 SKILLS = {
 
     "강타": {
@@ -222,135 +210,78 @@ SKILLS = {
 
     "대회복": {
         "mana": 25,
-        "description": "HP를 크게 회복",
+        "description": "최대 HP의 35%를 회복",
         "type": "heal"
     },
 
     "방어 태세": {
         "mana": 15,
-        "description": "다음 공격의 피해를 크게 감소",
+        "description": "다음 공격 피해를 50% 감소",
         "type": "defense"
     }
 }
 
 
 # =========================================================
-# 강화
+# 안전한 숫자 변환
 # =========================================================
 
-def enhancement_cost(level):
+def safe_int(value, default=0):
 
-    return 100 + (level * 100)
+    try:
 
+        if value is None:
+            return default
 
-def enhancement_success_rate(level):
+        return int(value)
 
-    return max(
-        30,
-        100 - (level * 8)
-    )
+    except (ValueError, TypeError):
+
+        return default
 
 
 # =========================================================
-# 게임 초기화
+# 새 플레이어 생성
 # =========================================================
 
-def init_game():
+def create_new_player():
 
-    if "player" not in st.session_state:
+    return {
 
-        st.session_state.player = {
+        "name": "용사",
 
-            "name": "용사",
+        "level": 1,
+        "exp": 0,
+        "stat_points": 5,
 
-            "level": 1,
-            "exp": 0,
-            "stat_points": 5,
+        "strength": 10,
+        "vitality": 10,
+        "defense": 5,
+        "agility": 5,
+        "spirit": 0,
 
-            "strength": 10,
-            "vitality": 10,
-            "defense": 5,
-            "agility": 5,
-            "spirit": 0,
+        "hp": 200,
 
-            "hp": 200,
+        # 기본 마나 50
+        "mana": 50,
 
-            # 🔵 마나 추가
-            "mana": 50,
+        "coins": 200,
+        "potions": 3,
 
-            "coins": 200,
-            "potions": 3,
+        "floor": 1,
 
-            "floor": 1,
+        "defending": False,
 
-            "defending": False,
+        "inventory": {
 
-            "inventory": {
-                "weapons": [],
-                "armors": [],
-                "accessories": []
-            },
-
-            "equipment": {
-
-                "weapon": {
-                    "name": "나무 검",
-                    "attack": 5,
-                    "enhance": 0
-                },
-
-                "armor": {
-                    "name": "낡은 옷",
-                    "defense": 0
-                },
-
-                "accessory": {
-                    "name": "없음",
-                    "attack": 0,
-                    "defense": 0,
-                    "mana": 0
-                }
-            }
-        }
-
-    # ====================================
-    # 기존 세이브 데이터 자동 보정
-    # ====================================
-
-    player = st.session_state.player
-
-    if "mana" not in player:
-        player["mana"] = 50
-
-    if "spirit" not in player:
-        player["spirit"] = 0
-
-    if "stat_points" not in player:
-        player["stat_points"] = 0
-
-    if "defending" not in player:
-        player["defending"] = False
-
-    if "inventory" not in player:
-
-        player["inventory"] = {
             "weapons": [],
+
             "armors": [],
+
             "accessories": []
-        }
+        },
 
-    if "weapons" not in player["inventory"]:
-        player["inventory"]["weapons"] = []
-
-    if "armors" not in player["inventory"]:
-        player["inventory"]["armors"] = []
-
-    if "accessories" not in player["inventory"]:
-        player["inventory"]["accessories"] = []
-
-    if "equipment" not in player:
-
-        player["equipment"] = {
+        "equipment": {
 
             "weapon": {
                 "name": "나무 검",
@@ -370,37 +301,257 @@ def init_game():
                 "mana": 0
             }
         }
+    }
 
-    if "weapon" not in player["equipment"]:
+
+# =========================================================
+# 기존 세이브 데이터 보정
+# =========================================================
+
+def repair_player_data(player):
+
+    if not isinstance(player, dict):
+
+        return create_new_player()
+
+
+    # 기본 스탯
+
+    defaults = {
+
+        "name": "용사",
+
+        "level": 1,
+        "exp": 0,
+        "stat_points": 0,
+
+        "strength": 10,
+        "vitality": 10,
+        "defense": 5,
+        "agility": 5,
+        "spirit": 0,
+
+        "hp": 200,
+
+        "mana": 50,
+
+        "coins": 200,
+        "potions": 3,
+
+        "floor": 1,
+
+        "defending": False
+    }
+
+
+    for key, value in defaults.items():
+
+        if key not in player or player[key] is None:
+
+            player[key] = value
+
+
+    # 숫자 데이터 강제 변환
+
+    number_keys = [
+
+        "level",
+        "exp",
+        "stat_points",
+
+        "strength",
+        "vitality",
+        "defense",
+        "agility",
+        "spirit",
+
+        "hp",
+        "mana",
+
+        "coins",
+        "potions",
+
+        "floor"
+    ]
+
+
+    for key in number_keys:
+
+        player[key] = safe_int(
+            player.get(key),
+            defaults[key]
+        )
+
+
+    # 마나는 절대 음수가 되지 않도록
+
+    player["mana"] = max(
+        0,
+        player["mana"]
+    )
+
+
+    # 인벤토리
+
+    if not isinstance(
+        player.get("inventory"),
+        dict
+    ):
+
+        player["inventory"] = {}
+
+
+    for category in [
+        "weapons",
+        "armors",
+        "accessories"
+    ]:
+
+        if not isinstance(
+            player["inventory"].get(category),
+            list
+        ):
+
+            player["inventory"][category] = []
+
+
+    # 장비
+
+    if not isinstance(
+        player.get("equipment"),
+        dict
+    ):
+
+        player["equipment"] = {}
+
+
+    if not isinstance(
+        player["equipment"].get("weapon"),
+        dict
+    ):
 
         player["equipment"]["weapon"] = {
+
             "name": "나무 검",
             "attack": 5,
             "enhance": 0
         }
 
-    if "armor" not in player["equipment"]:
+
+    if not isinstance(
+        player["equipment"].get("armor"),
+        dict
+    ):
 
         player["equipment"]["armor"] = {
+
             "name": "낡은 옷",
             "defense": 0
         }
 
-    if "accessory" not in player["equipment"]:
+
+    if not isinstance(
+        player["equipment"].get("accessory"),
+        dict
+    ):
 
         player["equipment"]["accessory"] = {
+
             "name": "없음",
             "attack": 0,
             "defense": 0,
             "mana": 0
         }
 
-    # 기존 악세사리에 mana가 없을 경우
-    if "mana" not in player["equipment"]["accessory"]:
-        player["equipment"]["accessory"]["mana"] = 0
+
+    accessory = player["equipment"]["accessory"]
+
+
+    if accessory.get("attack") is None:
+        accessory["attack"] = 0
+
+    if accessory.get("defense") is None:
+        accessory["defense"] = 0
+
+    if accessory.get("mana") is None:
+        accessory["mana"] = 0
+
+
+    accessory["attack"] = safe_int(
+        accessory.get("attack"),
+        0
+    )
+
+    accessory["defense"] = safe_int(
+        accessory.get("defense"),
+        0
+    )
+
+    accessory["mana"] = safe_int(
+        accessory.get("mana"),
+        0
+    )
+
+
+    weapon = player["equipment"]["weapon"]
+
+    if weapon.get("attack") is None:
+        weapon["attack"] = 5
+
+    if weapon.get("enhance") is None:
+        weapon["enhance"] = 0
+
+
+    weapon["attack"] = safe_int(
+        weapon.get("attack"),
+        5
+    )
+
+    weapon["enhance"] = safe_int(
+        weapon.get("enhance"),
+        0
+    )
+
+
+    armor = player["equipment"]["armor"]
+
+    if armor.get("defense") is None:
+        armor["defense"] = 0
+
+    armor["defense"] = safe_int(
+        armor.get("defense"),
+        0
+    )
+
+
+    return player
+
+
+# =========================================================
+# 게임 초기화
+# =========================================================
+
+def init_game():
+
+    if "player" not in st.session_state:
+
+        st.session_state.player = (
+            create_new_player()
+        )
+
+    else:
+
+        st.session_state.player = (
+            repair_player_data(
+                st.session_state.player
+            )
+        )
+
 
     if "enemy" not in st.session_state:
+
         st.session_state.enemy = None
+
 
     if "logs" not in st.session_state:
 
@@ -408,67 +559,82 @@ def init_game():
             "🏰 잊혀진 던전에 입장했습니다."
         ]
 
+
     if "game_over" not in st.session_state:
+
         st.session_state.game_over = False
+
+
+# 게임 초기화 실행
 
 init_game()
 
 
 # =========================================================
-# 최대 HP
+# 스탯 계산
 # =========================================================
 
 def get_max_hp():
 
     player = st.session_state.player
 
-    return 100 + (
-        player["vitality"] * 10
+    vitality = safe_int(
+        player.get("vitality"),
+        10
     )
 
+    return 100 + (
+        vitality * 10
+    )
 
-# =========================================================
-# 최대 마나
-# =========================================================
 
 def get_max_mana():
 
-   def get_max_mana():
-
     player = st.session_state.player
 
-    spirit = player.get(
-        "spirit",
+    spirit = safe_int(
+        player.get("spirit"),
         0
     )
 
-    accessory = player.get(
+
+    equipment = player.get(
         "equipment",
         {}
-    ).get(
+    )
+
+
+    accessory = equipment.get(
         "accessory",
         {}
     )
 
-    accessory_mana = accessory.get(
-        "mana",
+
+    if not isinstance(
+        accessory,
+        dict
+    ):
+
+        accessory = {}
+
+
+    accessory_mana = safe_int(
+        accessory.get("mana"),
         0
     )
+
 
     # 기본 50
     # 정신력 1당 +5
     # 악세사리 +5~15
-    return (
+
+    return max(
+        50,
         50
-        + spirit * 5
+        + (spirit * 5)
         + accessory_mana
     )
 
-
-
-# =========================================================
-# 공격력
-# =========================================================
 
 def get_attack():
 
@@ -478,32 +644,35 @@ def get_attack():
 
     accessory = player["equipment"]["accessory"]
 
-    strength_attack = (
-        player["strength"] * 2
+
+    strength = safe_int(
+        player.get("strength"),
+        10
     )
 
-    weapon_attack = weapon["attack"]
-
-    enhance_attack = (
-        weapon["enhance"] * 3
+    weapon_attack = safe_int(
+        weapon.get("attack"),
+        5
     )
 
-    accessory_attack = accessory.get(
-        "attack",
+    enhance = safe_int(
+        weapon.get("enhance"),
         0
     )
 
-    return (
-        strength_attack
-        + weapon_attack
-        + enhance_attack
-        + accessory_attack
+    accessory_attack = safe_int(
+        accessory.get("attack"),
+        0
     )
 
 
-# =========================================================
-# 방어력
-# =========================================================
+    return (
+        strength * 2
+        + weapon_attack
+        + enhance * 3
+        + accessory_attack
+    )
+
 
 def get_defense():
 
@@ -513,24 +682,97 @@ def get_defense():
 
     accessory = player["equipment"]["accessory"]
 
-    return (
-        player["defense"]
-        + armor.get("defense", 0)
-        + accessory.get("defense", 0)
+
+    defense = safe_int(
+        player.get("defense"),
+        5
+    )
+
+    armor_defense = safe_int(
+        armor.get("defense"),
+        0
+    )
+
+    accessory_defense = safe_int(
+        accessory.get("defense"),
+        0
     )
 
 
-# =========================================================
-# 치명타
-# =========================================================
+    return (
+        defense
+        + armor_defense
+        + accessory_defense
+    )
+
 
 def get_critical_rate():
 
     player = st.session_state.player
 
+    agility = safe_int(
+        player.get("agility"),
+        5
+    )
+
     return min(
         50,
-        player["agility"]
+        agility
+    )
+
+
+# =========================================================
+# 마나 안전 처리
+# =========================================================
+
+def get_mana():
+
+    player = st.session_state.player
+
+    mana = safe_int(
+        player.get("mana"),
+        50
+    )
+
+    return max(
+        0,
+        mana
+    )
+
+
+def set_mana(value):
+
+    player = st.session_state.player
+
+    max_mana = get_max_mana()
+
+    value = safe_int(
+        value,
+        0
+    )
+
+    player["mana"] = max(
+        0,
+        min(
+            value,
+            max_mana
+        )
+    )
+
+
+def restore_mana(amount=None):
+
+    if amount is None:
+
+        set_mana(
+            get_max_mana()
+        )
+
+        return
+
+
+    set_mana(
+        get_mana() + amount
     )
 
 
@@ -540,43 +782,66 @@ def get_critical_rate():
 
 def add_log(message):
 
+    if "logs" not in st.session_state:
+
+        st.session_state.logs = []
+
+
     st.session_state.logs.append(
         message
     )
 
-    if len(st.session_state.logs) > 18:
+
+    if len(
+        st.session_state.logs
+    ) > 20:
 
         st.session_state.logs.pop(0)
 
 
 # =========================================================
-# 경험치
+# 경험치 / 레벨업
 # =========================================================
 
 def gain_exp(amount):
 
     player = st.session_state.player
 
-    player["exp"] += amount
-
-    required = (
-        player["level"] * 50
+    amount = max(
+        0,
+        safe_int(
+            amount,
+            0
+        )
     )
 
-    while player["exp"] >= required:
+
+    player["exp"] += amount
+
+
+    while True:
+
+        required = (
+            player["level"] * 50
+        )
+
+
+        if player["exp"] < required:
+
+            break
+
 
         player["exp"] -= required
 
         player["level"] += 1
 
-        # 레벨업 스탯 포인트
         player["stat_points"] += 5
 
-        # 레벨업 HP 보너스
+
         player["hp"] = get_max_hp()
 
-        # 마나 완전 회복
-        player["mana"] = get_max_mana()
+        restore_mana()
+
 
         add_log(
             f"✨ 레벨 업! "
@@ -584,15 +849,11 @@ def gain_exp(amount):
         )
 
         add_log(
-            "📈 스탯 포인트 5 획득!"
+            "📈 스탯 포인트 +5"
         )
 
         add_log(
-            "🔵 마나가 모두 회복되었습니다!"
-        )
-
-        required = (
-            player["level"] * 50
+            "❤️ HP / 🔵 MP 완전 회복"
         )
 
 
@@ -602,79 +863,99 @@ def gain_exp(amount):
 
 def create_normal_enemy():
 
+    player = st.session_state.player
+
+    floor = safe_int(
+        player.get("floor"),
+        1
+    )
+
+
     template = random.choice(
         ENEMIES
     )
 
-    floor = st.session_state.player[
-        "floor"
-    ]
-
-    player_hp = get_max_hp()
-
-    player_attack = get_attack()
-
-    player_defense = get_defense()
 
     enemy = template.copy()
 
-    # 층마다 기본적으로 12% 증가
-    floor_scale = (
-        1 + ((floor - 1) * 0.12)
+
+    scale = (
+        1
+        + ((floor - 1) * 0.12)
     )
 
+
     enemy["hp"] = int(
-        enemy["hp"] * floor_scale
+        enemy["hp"] * scale
     )
 
     enemy["attack"] = int(
-        enemy["attack"] * floor_scale
+        enemy["attack"] * scale
     )
 
     enemy["defense"] = int(
-        enemy["defense"] * floor_scale
+        enemy["defense"] * scale
     )
 
     enemy["coins"] = int(
         enemy["coins"]
-        * (1 + (floor - 1) * 0.08)
+        * (
+            1
+            + ((floor - 1) * 0.08)
+        )
     )
 
     enemy["exp"] = int(
         enemy["exp"]
-        * (1 + (floor - 1) * 0.08)
+        * (
+            1
+            + ((floor - 1) * 0.08)
+        )
     )
 
-    # 플레이어 기준 최소 능력치
+
+    # 플레이어보다 너무 약해지지 않도록
+
     enemy["hp"] = max(
         enemy["hp"],
-        int(player_hp * 0.75)
+        int(get_max_hp() * 0.70)
     )
 
     enemy["attack"] = max(
         enemy["attack"],
-        int(player_attack * 0.70)
+        int(get_attack() * 0.65)
     )
 
     enemy["defense"] = max(
         enemy["defense"],
-        int(player_defense * 0.75)
+        int(get_defense() * 0.70)
     )
 
+
     # 약간의 랜덤성
+
     enemy["hp"] = int(
         enemy["hp"]
-        * random.uniform(0.95, 1.10)
+        * random.uniform(
+            0.95,
+            1.10
+        )
     )
+
 
     enemy["attack"] = int(
         enemy["attack"]
-        * random.uniform(0.95, 1.08)
+        * random.uniform(
+            0.95,
+            1.08
+        )
     )
+
 
     enemy["max_hp"] = enemy["hp"]
 
     enemy["is_boss"] = False
+
 
     return enemy
 
@@ -685,76 +966,82 @@ def create_normal_enemy():
 
 def create_boss():
 
-    floor = st.session_state.player[
-        "floor"
-    ]
+    player = st.session_state.player
 
-    player_hp = get_max_hp()
-
-    player_attack = get_attack()
-
-    player_defense = get_defense()
-
-    # 10층 -> 첫 번째 보스
-    boss_index = (
-        (floor // 10) - 1
+    floor = safe_int(
+        player.get("floor"),
+        10
     )
 
-    boss_index = min(
-        boss_index,
+
+    boss_number = (
+        floor // 10
+    )
+
+
+    index = min(
+        boss_number - 1,
         len(BOSSES) - 1
     )
 
-    template = BOSSES[
-        boss_index
-    ]
+
+    template = BOSSES[index]
 
     boss = template.copy()
 
-    # 10층마다 강력하게 증가
-    boss_scale = (
-        1 + ((floor // 10 - 1) * 0.25)
+
+    scale = (
+        1
+        + (
+            (boss_number - 1)
+            * 0.25
+        )
     )
 
+
     boss["hp"] = int(
-        boss["hp"] * boss_scale
+        boss["hp"] * scale
     )
 
     boss["attack"] = int(
-        boss["attack"] * boss_scale
+        boss["attack"] * scale
     )
 
     boss["defense"] = int(
-        boss["defense"] * boss_scale
+        boss["defense"] * scale
     )
 
     boss["coins"] = int(
-        boss["coins"] * boss_scale
+        boss["coins"] * scale
     )
 
     boss["exp"] = int(
-        boss["exp"] * boss_scale
+        boss["exp"] * scale
     )
 
-    # 플레이어보다 충분히 강하게
+
+    # 플레이어보다 강하게
+
     boss["hp"] = max(
         boss["hp"],
-        int(player_hp * 2.0)
+        int(get_max_hp() * 2.0)
     )
 
     boss["attack"] = max(
         boss["attack"],
-        int(player_attack * 1.15)
+        int(get_attack() * 1.15)
     )
 
     boss["defense"] = max(
         boss["defense"],
-        int(player_defense * 1.10)
+        int(get_defense() * 1.10)
     )
+
 
     boss["max_hp"] = boss["hp"]
 
     boss["is_boss"] = True
+
 
     return boss
 
@@ -766,18 +1053,24 @@ def create_boss():
 def spawn_enemy():
 
     if st.session_state.enemy is not None:
+
         return
 
-    floor = st.session_state.player[
-        "floor"
-    ]
 
-    # 10의 배수 층이면 보스
+    floor = safe_int(
+        st.session_state.player.get(
+            "floor"
+        ),
+        1
+    )
+
+
     if floor % 10 == 0:
 
         enemy = create_boss()
 
         st.session_state.enemy = enemy
+
 
         add_log(
             "🚨🚨🚨 BOSS 등장! 🚨🚨🚨"
@@ -787,13 +1080,6 @@ def spawn_enemy():
             f"👑 {enemy['name']}"
         )
 
-        add_log(
-            f"❤️ HP {enemy['hp']}"
-        )
-
-        add_log(
-            f"⚔️ 공격 {enemy['attack']}"
-        )
 
     else:
 
@@ -801,47 +1087,47 @@ def spawn_enemy():
 
         st.session_state.enemy = enemy
 
+
         add_log(
             f"👹 {enemy['name']} 등장!"
         )
 
 
 # =========================================================
-# 스탯 포인트
+# 스탯 증가
 # =========================================================
 
 def increase_stat(stat_name):
 
     player = st.session_state.player
 
+
     if player["stat_points"] <= 0:
 
         add_log(
-            "❌ 사용할 스탯 포인트가 없습니다."
+            "❌ 스탯 포인트가 없습니다."
         )
 
         return
+
 
     player["stat_points"] -= 1
 
     player[stat_name] += 1
 
-    if stat_name == "vitality":
 
-        old_hp = player["hp"]
+    if stat_name == "vitality":
 
         player["hp"] = min(
             get_max_hp(),
-            old_hp + 10
+            player["hp"] + 10
         )
+
 
     if stat_name == "spirit":
 
-        # 정신력 상승 시 마나 증가
-        player["mana"] = min(
-            get_max_mana(),
-            player["mana"] + 5
-        )
+        restore_mana(5)
+
 
     add_log(
         f"📈 {stat_name} +1"
@@ -858,19 +1144,37 @@ def enemy_attack():
 
     enemy = st.session_state.enemy
 
+
+    if enemy is None:
+
+        return
+
+
     # 회피
-    dodge_chance = min(
-        30,
-        player["agility"] * 0.5
+
+    agility = safe_int(
+        player.get("agility"),
+        5
     )
 
-    if random.random() * 100 < dodge_chance:
+
+    dodge_chance = min(
+        30,
+        agility * 0.5
+    )
+
+
+    if (
+        random.random() * 100
+        < dodge_chance
+    ):
 
         add_log(
-            f"💨 공격 회피!"
+            "💨 공격을 회피했습니다!"
         )
 
         return
+
 
     raw_damage = random.randint(
         max(
@@ -880,14 +1184,15 @@ def enemy_attack():
         enemy["attack"] + 4
     )
 
-    defense = get_defense()
 
     damage = max(
         1,
-        raw_damage - defense
+        raw_damage - get_defense()
     )
 
+
     # 방어 태세
+
     if player["defending"]:
 
         damage = max(
@@ -898,18 +1203,21 @@ def enemy_attack():
         player["defending"] = False
 
         add_log(
-            "🛡️ 방어 태세로 피해 감소!"
+            "🛡️ 방어 태세 발동!"
         )
 
+
     player["hp"] -= damage
+
 
     add_log(
         f"💥 {enemy['name']}의 공격!"
     )
 
     add_log(
-        f"🛡️ {damage} 피해"
+        f"❤️ HP -{damage}"
     )
+
 
     if player["hp"] <= 0:
 
@@ -918,7 +1226,7 @@ def enemy_attack():
         st.session_state.game_over = True
 
         add_log(
-            "☠️ 당신은 던전에서 쓰러졌습니다."
+            "☠️ 당신은 쓰러졌습니다."
         )
 
 
@@ -928,58 +1236,58 @@ def enemy_attack():
 
 def attack():
 
-    player = st.session_state.player
-
     enemy = st.session_state.enemy
+
 
     if enemy is None:
 
-        spawn_enemy()
-
         return
 
-    attack_power = get_attack()
 
     damage = random.randint(
         max(
             1,
-            attack_power - 5
+            get_attack() - 5
         ),
-        attack_power + 5
+        get_attack() + 5
     )
 
+
     # 치명타
-    critical_rate = get_critical_rate()
 
     if (
         random.random() * 100
-        < critical_rate
+        < get_critical_rate()
     ):
 
         damage *= 2
 
         add_log(
-            f"💥 치명타!"
+            "💥 치명타!"
         )
 
-    # 적 방어
+
     damage = max(
         1,
         damage - enemy["defense"]
     )
 
+
     enemy["hp"] -= damage
+
 
     add_log(
         f"⚔️ {enemy['name']}에게 "
         f"{damage} 피해!"
     )
 
+
     if enemy["hp"] <= 0:
 
         defeat_enemy()
 
         return
+
 
     enemy_attack()
 
@@ -994,13 +1302,28 @@ def defeat_enemy():
 
     enemy = st.session_state.enemy
 
-    coins = enemy["coins"]
 
-    exp = enemy["exp"]
+    if enemy is None:
+
+        return
+
+
+    coins = safe_int(
+        enemy.get("coins"),
+        0
+    )
+
+    exp = safe_int(
+        enemy.get("exp"),
+        0
+    )
+
 
     player["coins"] += coins
 
+
     gain_exp(exp)
+
 
     add_log(
         f"💀 {enemy['name']} 처치!"
@@ -1014,36 +1337,43 @@ def defeat_enemy():
         f"⭐ EXP +{exp}"
     )
 
-    # 보스 보상
-    if enemy["is_boss"]:
 
-        boss_bonus = random.randint(
+    # 보스
+
+    if enemy.get("is_boss", False):
+
+        bonus = random.randint(
             200,
             500
         )
 
-        player["coins"] += boss_bonus
+
+        player["coins"] += bonus
+
 
         add_log(
             f"👑 보스 처치 보너스!"
         )
 
         add_log(
-            f"🪙 추가 코인 +{boss_bonus}"
+            f"🪙 추가 코인 +{bonus}"
         )
 
-        # 보스 처치 시 마나/HP 완전 회복
+
         player["hp"] = get_max_hp()
 
-        player["mana"] = get_max_mana()
+        restore_mana()
+
 
         add_log(
-            "❤️ HP와 🔵 MP가 모두 회복되었습니다!"
+            "❤️ HP / 🔵 MP 완전 회복!"
         )
+
+
+    # 일반 몬스터
 
     else:
 
-        # 일반 몬스터 보너스
         if random.random() < 0.25:
 
             bonus = random.randint(
@@ -1054,15 +1384,19 @@ def defeat_enemy():
             player["coins"] += bonus
 
             add_log(
-                f"🎁 보너스 코인 +{bonus}!"
+                f"🎁 보너스 코인 +{bonus}"
             )
 
+
     # 다음 층
+
     player["floor"] += 1
+
 
     add_log(
         f"🚪 {player['floor']}층으로 이동!"
     )
+
 
     st.session_state.enemy = None
 
@@ -1077,83 +1411,105 @@ def use_skill(skill_name):
 
     enemy = st.session_state.enemy
 
-    skill = SKILLS[skill_name]
 
-    mana_cost = skill["mana"]
-
-    # 마나 부족
-    if player["mana"] < mana_cost:
-
-        add_log(
-            f"🔵 마나가 부족합니다!"
-        )
-
-        add_log(
-            f"필요 마나: {mana_cost}"
-        )
-
-        return
-
-    # 전투 중이 아닌 경우
     if enemy is None:
 
         add_log(
-            "❌ 전투 중에만 사용할 수 있습니다."
+            "❌ 전투 중에만 스킬을 사용할 수 있습니다."
         )
 
         return
 
-    # 마나 차감
-    player["mana"] -= mana_cost
 
-    # -----------------------------------------------------
+    if skill_name not in SKILLS:
+
+        return
+
+
+    skill = SKILLS[skill_name]
+
+    mana_cost = safe_int(
+        skill.get("mana"),
+        0
+    )
+
+
+    current_mana = get_mana()
+
+
+    # 마나 부족
+
+    if current_mana < mana_cost:
+
+        add_log(
+            "🔵 마나가 부족합니다!"
+        )
+
+        add_log(
+            f"필요 MP: {mana_cost}"
+        )
+
+        return
+
+
+    # 마나 차감
+
+    set_mana(
+        current_mana - mana_cost
+    )
+
+
+    # =====================================================
     # 강타
-    # -----------------------------------------------------
+    # =====================================================
 
     if skill_name == "강타":
 
-        attack_power = get_attack()
-
         damage = int(
-            attack_power * 1.7
+            get_attack() * 1.7
         )
+
 
         damage = max(
             1,
             damage - enemy["defense"]
         )
 
+
         enemy["hp"] -= damage
 
+
         add_log(
-            f"⚔️ 강타!"
+            "⚔️ 강타!"
         )
 
         add_log(
             f"💥 {damage} 피해!"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # 화염구
-    # -----------------------------------------------------
+    # =====================================================
 
     elif skill_name == "화염구":
 
-        attack_power = get_attack()
-
         damage = int(
-            attack_power * 2.0
+            get_attack() * 2.0
         )
 
-        # 화염구는 방어력 무시 50%
+
         damage = max(
             1,
-            damage - (
+            damage
+            - (
                 enemy["defense"] // 2
             )
         )
 
+
         enemy["hp"] -= damage
+
 
         add_log(
             "🔥 화염구!"
@@ -1163,9 +1519,10 @@ def use_skill(skill_name):
             f"💥 {damage} 마법 피해!"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # 대회복
-    # -----------------------------------------------------
+    # =====================================================
 
     elif skill_name == "대회복":
 
@@ -1173,65 +1530,70 @@ def use_skill(skill_name):
             get_max_hp() * 0.35
         )
 
+
         old_hp = player["hp"]
+
 
         player["hp"] = min(
             get_max_hp(),
             player["hp"] + heal
         )
 
+
         actual_heal = (
             player["hp"] - old_hp
         )
 
+
         add_log(
-            f"💚 대회복!"
+            "💚 대회복!"
         )
 
         add_log(
             f"❤️ HP +{actual_heal}"
         )
 
-    # -----------------------------------------------------
+
+    # =====================================================
     # 방어 태세
-    # -----------------------------------------------------
+    # =====================================================
 
     elif skill_name == "방어 태세":
 
         player["defending"] = True
+
 
         add_log(
             "🛡️ 방어 태세!"
         )
 
         add_log(
-            "다음 공격 피해가 50% 감소합니다."
+            "다음 공격 피해 50% 감소"
         )
 
-    # 적 처치 확인
+
+    # 적 처치
+
     if enemy["hp"] <= 0:
 
         defeat_enemy()
 
         return
 
-    # 공격/회복 스킬은 적 반격
-    if skill_name != "방어 태세":
 
-        enemy_attack()
+    # 적 반격
 
-    else:
-
-        enemy_attack()
+    enemy_attack()
 
 
 # =========================================================
-# 포션
+# 포션 사용
 # =========================================================
 
 def use_potion():
 
     player = st.session_state.player
+
 
     if player["potions"] <= 0:
 
@@ -1241,6 +1603,7 @@ def use_potion():
 
         return
 
+
     if player["hp"] >= get_max_hp():
 
         add_log(
@@ -1249,18 +1612,24 @@ def use_potion():
 
         return
 
+
     heal = 30
+
 
     player["hp"] = min(
         get_max_hp(),
         player["hp"] + heal
     )
 
+
     player["potions"] -= 1
 
+
     add_log(
-        f"🧪 포션 사용! HP +{heal}"
+        f"🧪 포션 사용! "
+        f"❤️ HP +{heal}"
     )
+
 
     if st.session_state.enemy:
 
@@ -1275,22 +1644,25 @@ def rest():
 
     player = st.session_state.player
 
+
     hp_heal = 15
 
-    mana_heal = 10
+    mp_heal = 10
+
 
     player["hp"] = min(
         get_max_hp(),
         player["hp"] + hp_heal
     )
 
-    player["mana"] = min(
-        get_max_mana(),
-        player["mana"] + mana_heal
+
+    restore_mana(
+        mp_heal
     )
 
+
     add_log(
-        f"🔥 휴식!"
+        "🔥 휴식했습니다."
     )
 
     add_log(
@@ -1298,8 +1670,9 @@ def rest():
     )
 
     add_log(
-        f"🔵 MP +{mana_heal}"
+        f"🔵 MP +{mp_heal}"
     )
+
 
     if st.session_state.enemy:
 
@@ -1314,7 +1687,12 @@ def buy_item(category, item):
 
     player = st.session_state.player
 
-    price = item["price"]
+
+    price = safe_int(
+        item.get("price"),
+        0
+    )
+
 
     if player["coins"] < price:
 
@@ -1324,7 +1702,9 @@ def buy_item(category, item):
 
         return
 
+
     player["coins"] -= price
+
 
     if category == "potions":
 
@@ -1336,11 +1716,13 @@ def buy_item(category, item):
 
         return
 
+
     player["inventory"][
         category
     ].append(
         item.copy()
     )
+
 
     add_log(
         f"🛒 {item['name']} 구매!"
@@ -1351,13 +1733,28 @@ def buy_item(category, item):
 # 장비 장착
 # =========================================================
 
-def equip_item(category, item_index):
+def equip_item(
+    category,
+    index
+):
 
     player = st.session_state.player
 
-    item = player["inventory"][
-        category
-    ][item_index]
+
+    inventory = player[
+        "inventory"
+    ][category]
+
+
+    if index < 0 or index >= len(
+        inventory
+    ):
+
+        return
+
+
+    item = inventory[index].copy()
+
 
     if category == "weapons":
 
@@ -1365,9 +1762,11 @@ def equip_item(category, item_index):
             "weapon"
         ] = item
 
+
         add_log(
             f"⚔️ {item['name']} 장착!"
         )
+
 
     elif category == "armors":
 
@@ -1375,9 +1774,11 @@ def equip_item(category, item_index):
             "armor"
         ] = item
 
+
         add_log(
             f"🛡️ {item['name']} 장착!"
         )
+
 
     elif category == "accessories":
 
@@ -1385,11 +1786,14 @@ def equip_item(category, item_index):
             "accessory"
         ] = item
 
-        # 장비 변경 시 마나가 최대치를 넘지 않도록 조정
-        player["mana"] = min(
-            player["mana"],
-            get_max_mana()
+
+        # 악세사리 교체 후
+        # 현재 MP가 최대치를 넘지 않게 조정
+
+        set_mana(
+            get_mana()
         )
+
 
         add_log(
             f"💍 {item['name']} 장착!"
@@ -1400,17 +1804,47 @@ def equip_item(category, item_index):
 # 무기 강화
 # =========================================================
 
+def enhancement_cost(level):
+
+    return 100 + (
+        level * 100
+    )
+
+
+def enhancement_success_rate(level):
+
+    return max(
+        30,
+        100 - (
+            level * 8
+        )
+    )
+
+
 def enhance_weapon():
 
     player = st.session_state.player
 
-    weapon = player["equipment"]["weapon"]
+    weapon = player[
+        "equipment"
+    ]["weapon"]
 
-    level = weapon["enhance"]
 
-    cost = enhancement_cost(level)
+    level = safe_int(
+        weapon.get("enhance"),
+        0
+    )
 
-    success_rate = enhancement_success_rate(level)
+
+    cost = enhancement_cost(
+        level
+    )
+
+
+    success_rate = enhancement_success_rate(
+        level
+    )
+
 
     if player["coins"] < cost:
 
@@ -1420,16 +1854,22 @@ def enhance_weapon():
 
         return
 
+
     player["coins"] -= cost
+
 
     roll = random.randint(
         1,
         100
     )
 
+
     if roll <= success_rate:
 
-        weapon["enhance"] += 1
+        weapon["enhance"] = (
+            level + 1
+        )
+
 
         add_log(
             "🔨 강화 성공!"
@@ -1440,52 +1880,45 @@ def enhance_weapon():
             f"+{weapon['enhance']}"
         )
 
+
     else:
 
         add_log(
             "💥 강화 실패!"
         )
 
-        if weapon["enhance"] >= 3:
 
-            weapon["enhance"] -= 1
+        if level >= 3:
+
+            weapon["enhance"] = (
+                level - 1
+            )
+
 
             add_log(
-                f"📉 강화 단계가 "
-                f"+{weapon['enhance']}로 "
-                f"하락했습니다."
+                f"📉 강화 단계 하락!"
             )
 
 
 # =========================================================
-# 재시작
+# 게임 초기화
 # =========================================================
 
-def restart_game():
+def reset_game():
 
-    for key in [
-        "player",
-        "enemy",
-        "logs",
-        "game_over"
-    ]:
+    for key in list(
+        st.session_state.keys()
+    ):
 
-        if key in st.session_state:
+        del st.session_state[key]
 
-            del st.session_state[key]
 
     init_game()
 
 
 # =========================================================
-# 화면
+# 화면 시작
 # =========================================================
-
-st.title("⚔️ 잊혀진 던전")
-
-st.caption(
-    "로그라이크 RPG · 보스 · 스킬 · 장비 · 강화"
-)
 
 player = st.session_state.player
 
@@ -1493,17 +1926,63 @@ enemy = st.session_state.enemy
 
 
 # =========================================================
-# 상단 정보
+# 사이드바
+# =========================================================
+
+with st.sidebar:
+
+    st.header("⚙️ 게임 관리")
+
+
+    st.write(
+        f"🏰 현재 층: "
+        f"**{player['floor']}**"
+    )
+
+    st.write(
+        f"🪙 코인: "
+        f"**{player['coins']}**"
+    )
+
+
+    st.divider()
+
+
+    if st.button(
+        "🗑️ 게임 데이터 초기화",
+        use_container_width=True
+    ):
+
+        reset_game()
+
+        st.rerun()
+
+
+# =========================================================
+# 제목
+# =========================================================
+
+st.title("⚔️ 잊혀진 던전")
+
+st.caption(
+    "RPG · 던전 · 보스 · 스킬 · 장비 · 강화"
+)
+
+
+# =========================================================
+# 상단 상태
 # =========================================================
 
 col1, col2, col3, col4 = st.columns(4)
 
+
 with col1:
 
     st.metric(
-        "Lv",
+        "레벨",
         player["level"]
     )
+
 
 with col2:
 
@@ -1512,12 +1991,14 @@ with col2:
         player["coins"]
     )
 
+
 with col3:
 
     st.metric(
         "⚔️ 공격",
         get_attack()
     )
+
 
 with col4:
 
@@ -1527,51 +2008,78 @@ with col4:
     )
 
 
+# =========================================================
 # HP
+# =========================================================
 
 st.write(
     f"❤️ HP "
-    f"{player['hp']} / {get_max_hp()}"
+    f"**{player['hp']} / {get_max_hp()}**"
 )
 
+
 st.progress(
-    min(
-        1.0,
-        player["hp"] / get_max_hp()
+    max(
+        0.0,
+        min(
+            1.0,
+            player["hp"]
+            / get_max_hp()
+        )
     )
 )
 
 
+# =========================================================
 # MP
+# =========================================================
+
+current_mana = get_mana()
+
+max_mana = get_max_mana()
+
 
 st.write(
     f"🔵 MP "
-    f"{player['mana']} / {get_max_mana()}"
+    f"**{current_mana} / {max_mana}**"
 )
 
+
 st.progress(
-    min(
-        1.0,
-        player["mana"] / get_max_mana()
+    max(
+        0.0,
+        min(
+            1.0,
+            current_mana
+            / max_mana
+        )
     )
 )
 
 
+# =========================================================
 # EXP
+# =========================================================
 
 required_exp = (
     player["level"] * 50
 )
 
+
 st.write(
     f"⭐ EXP "
-    f"{player['exp']} / {required_exp}"
+    f"**{player['exp']} / {required_exp}**"
 )
 
+
 st.progress(
-    min(
-        1.0,
-        player["exp"] / required_exp
+    max(
+        0.0,
+        min(
+            1.0,
+            player["exp"]
+            / required_exp
+        )
     )
 )
 
@@ -1606,7 +2114,7 @@ with tab_game:
 
     st.subheader("🏰 던전")
 
-    # 보스 경고
+
     if (
         player["floor"] % 10 == 0
         and enemy is None
@@ -1617,9 +2125,13 @@ with tab_game:
             f"보스층입니다!"
         )
 
-    if enemy:
 
-        if enemy["is_boss"]:
+    if enemy is not None:
+
+        if enemy.get(
+            "is_boss",
+            False
+        ):
 
             st.error(
                 f"👑 BOSS "
@@ -1632,36 +2144,49 @@ with tab_game:
                 f"👹 {enemy['name']}"
             )
 
+
         st.write(
             f"❤️ HP "
-            f"{enemy['hp']} / "
-            f"{enemy['max_hp']}"
+            f"**{enemy['hp']} / "
+            f"{enemy['max_hp']}**"
         )
+
 
         st.progress(
             max(
-                0,
-                enemy["hp"]
-            ) / enemy["max_hp"]
+                0.0,
+                min(
+                    1.0,
+                    enemy["hp"]
+                    / enemy["max_hp"]
+                )
+            )
         )
+
 
         st.write(
             f"⚔️ 공격력: "
             f"**{enemy['attack']}**"
         )
 
+
         st.write(
             f"🛡️ 방어력: "
             f"**{enemy['defense']}**"
         )
 
-        if enemy["is_boss"]:
+
+        if enemy.get(
+            "is_boss",
+            False
+        ):
 
             st.write(
-                f"👑 보상: "
+                f"👑 보상 "
                 f"🪙 {enemy['coins']} / "
                 f"⭐ {enemy['exp']}"
             )
+
 
     else:
 
@@ -1670,7 +2195,9 @@ with tab_game:
         )
 
 
+    # =====================================================
     # 게임 오버
+    # =====================================================
 
     if st.session_state.game_over:
 
@@ -1678,28 +2205,34 @@ with tab_game:
             "☠️ GAME OVER"
         )
 
-        st.write(
-            f"최종 층: "
-            f"{player['floor']}"
-        )
 
         st.write(
-            f"최종 레벨: "
-            f"{player['level']}"
+            f"도달 층: "
+            f"**{player['floor']}층**"
         )
+
+
+        st.write(
+            f"레벨: "
+            f"**{player['level']}**"
+        )
+
 
         if st.button(
             "🔄 다시 시작",
             use_container_width=True
         ):
 
-            restart_game()
+            reset_game()
 
             st.rerun()
 
+
     else:
 
+        # =================================================
         # 탐험
+        # =================================================
 
         if enemy is None:
 
@@ -1712,11 +2245,15 @@ with tab_game:
 
                 st.rerun()
 
+
+        # =================================================
         # 전투
+        # =================================================
 
         else:
 
             col1, col2 = st.columns(2)
+
 
             with col1:
 
@@ -1728,6 +2265,7 @@ with tab_game:
                     attack()
 
                     st.rerun()
+
 
             with col2:
 
@@ -1755,13 +2293,18 @@ with tab_game:
                 "### 🔥 스킬"
             )
 
+
             skill_cols = st.columns(2)
+
 
             for index, skill_name in enumerate(
                 SKILLS
             ):
 
-                skill = SKILLS[skill_name]
+                skill = SKILLS[
+                    skill_name
+                ]
+
 
                 with skill_cols[
                     index % 2
@@ -1770,7 +2313,10 @@ with tab_game:
                     if st.button(
                         f"{skill_name} "
                         f"({skill['mana']} MP)",
-                        key=f"battle_skill_{skill_name}",
+                        key=(
+                            "battle_skill_"
+                            + skill_name
+                        ),
                         use_container_width=True
                     ):
 
@@ -1791,11 +2337,14 @@ with tab_stats:
         "📊 캐릭터 스탯"
     )
 
+
     st.info(
         f"사용 가능한 스탯 포인트: "
         f"**{player['stat_points']}**"
     )
 
+
+    # 힘
 
     st.markdown(
         "### 💪 힘"
@@ -1809,9 +2358,10 @@ with tab_stats:
         "힘 1 → 공격력 +2"
     )
 
+
     if st.button(
         "힘 +1",
-        key="strength_up",
+        key="stat_strength",
         use_container_width=True
     ):
 
@@ -1821,6 +2371,8 @@ with tab_stats:
 
         st.rerun()
 
+
+    # 체력
 
     st.markdown(
         "### ❤️ 체력"
@@ -1834,9 +2386,10 @@ with tab_stats:
         "체력 1 → 최대 HP +10"
     )
 
+
     if st.button(
         "체력 +1",
-        key="vitality_up",
+        key="stat_vitality",
         use_container_width=True
     ):
 
@@ -1846,6 +2399,8 @@ with tab_stats:
 
         st.rerun()
 
+
+    # 방어
 
     st.markdown(
         "### 🛡️ 방어"
@@ -1859,9 +2414,10 @@ with tab_stats:
         "방어 1 → 받는 피해 감소"
     )
 
+
     if st.button(
         "방어 +1",
-        key="defense_up",
+        key="stat_defense",
         use_container_width=True
     ):
 
@@ -1872,6 +2428,8 @@ with tab_stats:
         st.rerun()
 
 
+    # 민첩
+
     st.markdown(
         "### 💨 민첩"
     )
@@ -1881,12 +2439,13 @@ with tab_stats:
     )
 
     st.caption(
-        "민첩 1 → 치명타 +1%, 회피 +0.5%"
+        "민첩 1 → 치명타 +1%"
     )
+
 
     if st.button(
         "민첩 +1",
-        key="agility_up",
+        key="stat_agility",
         use_container_width=True
     ):
 
@@ -1897,6 +2456,8 @@ with tab_stats:
         st.rerun()
 
 
+    # 정신력
+
     st.markdown(
         "### 🧠 정신력"
     )
@@ -1906,12 +2467,13 @@ with tab_stats:
     )
 
     st.caption(
-        "정신력 1 → 최대 마나 +5"
+        "정신력 1 → 최대 MP +5"
     )
+
 
     if st.button(
         "정신력 +1",
-        key="spirit_up",
+        key="stat_spirit",
         use_container_width=True
     ):
 
@@ -1924,30 +2486,41 @@ with tab_stats:
 
     st.divider()
 
+
     st.markdown(
         "### 📋 최종 능력치"
     )
 
-    st.write(
-        f"⚔️ 공격력: **{get_attack()}**"
-    )
 
     st.write(
-        f"🛡️ 방어력: **{get_defense()}**"
+        f"⚔️ 공격력: "
+        f"**{get_attack()}**"
     )
 
-    st.write(
-        f"❤️ 최대 HP: **{get_max_hp()}**"
-    )
 
     st.write(
-        f"🔵 최대 MP: **{get_max_mana()}**"
+        f"🛡️ 방어력: "
+        f"**{get_defense()}**"
     )
+
+
+    st.write(
+        f"❤️ 최대 HP: "
+        f"**{get_max_hp()}**"
+    )
+
+
+    st.write(
+        f"🔵 최대 MP: "
+        f"**{get_max_mana()}**"
+    )
+
 
     st.write(
         f"💥 치명타: "
         f"**{get_critical_rate()}%**"
     )
+
 
     st.write(
         f"💨 회피: "
@@ -1965,10 +2538,10 @@ with tab_skills:
         "🔥 스킬"
     )
 
+
     st.write(
         f"현재 MP: "
-        f"**{player['mana']} / "
-        f"{get_max_mana()}**"
+        f"**{get_mana()} / {get_max_mana()}**"
     )
 
 
@@ -1978,14 +2551,17 @@ with tab_skills:
             f"### {skill_name}"
         )
 
+
         st.write(
-            f"🔵 마나 소비: "
+            f"🔵 MP 소비: "
             f"**{skill['mana']}**"
         )
+
 
         st.write(
             skill["description"]
         )
+
 
         if skill_name == "강타":
 
@@ -1993,11 +2569,13 @@ with tab_skills:
                 "⚔️ 공격력의 170% 피해"
             )
 
+
         elif skill_name == "화염구":
 
             st.write(
-                "🔥 공격력의 200% 마법 피해"
+                "🔥 공격력의 200% 피해"
             )
+
 
         elif skill_name == "대회복":
 
@@ -2005,11 +2583,13 @@ with tab_skills:
                 "💚 최대 HP의 35% 회복"
             )
 
+
         elif skill_name == "방어 태세":
 
             st.write(
                 "🛡️ 다음 공격 피해 50% 감소"
             )
+
 
         st.divider()
 
@@ -2024,15 +2604,19 @@ with tab_shop:
         "🏪 던전 상점"
     )
 
+
     st.write(
         f"🪙 보유 코인: "
         f"**{player['coins']}**"
     )
 
 
+    # 무기
+
     st.markdown(
         "### ⚔️ 무기"
     )
+
 
     for i, item in enumerate(
         SHOP_ITEMS["weapons"]
@@ -2042,6 +2626,7 @@ with tab_shop:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
@@ -2050,11 +2635,12 @@ with tab_shop:
                 f"| 🪙 {item['price']}"
             )
 
+
         with col2:
 
             if st.button(
                 "구매",
-                key=f"weapon_buy_{i}"
+                key=f"buy_weapon_{i}"
             ):
 
                 buy_item(
@@ -2065,9 +2651,12 @@ with tab_shop:
                 st.rerun()
 
 
+    # 갑옷
+
     st.markdown(
         "### 🛡️ 갑옷"
     )
+
 
     for i, item in enumerate(
         SHOP_ITEMS["armors"]
@@ -2077,6 +2666,7 @@ with tab_shop:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
@@ -2085,11 +2675,12 @@ with tab_shop:
                 f"| 🪙 {item['price']}"
             )
 
+
         with col2:
 
             if st.button(
                 "구매",
-                key=f"armor_buy_{i}"
+                key=f"buy_armor_{i}"
             ):
 
                 buy_item(
@@ -2100,9 +2691,12 @@ with tab_shop:
                 st.rerun()
 
 
+    # 악세사리
+
     st.markdown(
         "### 💍 악세사리"
     )
+
 
     for i, item in enumerate(
         SHOP_ITEMS["accessories"]
@@ -2112,36 +2706,23 @@ with tab_shop:
             [3, 1]
         )
 
+
         with col1:
-
-            attack = item.get(
-                "attack",
-                0
-            )
-
-            defense = item.get(
-                "defense",
-                0
-            )
-
-            mana = item.get(
-                "mana",
-                0
-            )
 
             st.write(
                 f"**{item['name']}** "
-                f"| ⚔️ +{attack} "
-                f"| 🛡️ +{defense} "
-                f"| 🔵 MP +{mana} "
+                f"| ⚔️ +{item.get('attack', 0)} "
+                f"| 🛡️ +{item.get('defense', 0)} "
+                f"| 🔵 MP +{item.get('mana', 0)} "
                 f"| 🪙 {item['price']}"
             )
+
 
         with col2:
 
             if st.button(
                 "구매",
-                key=f"accessory_buy_{i}"
+                key=f"buy_accessory_{i}"
             ):
 
                 buy_item(
@@ -2152,9 +2733,12 @@ with tab_shop:
                 st.rerun()
 
 
+    # 포션
+
     st.markdown(
         "### 🧪 포션"
     )
+
 
     for i, item in enumerate(
         SHOP_ITEMS["potions"]
@@ -2164,6 +2748,7 @@ with tab_shop:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
@@ -2172,11 +2757,12 @@ with tab_shop:
                 f"| 🪙 {item['price']}"
             )
 
+
         with col2:
 
             if st.button(
                 "구매",
-                key=f"potion_buy_{i}"
+                key=f"buy_potion_{i}"
             ):
 
                 buy_item(
@@ -2197,16 +2783,26 @@ with tab_inventory:
         "🎒 장비"
     )
 
-    weapon = player["equipment"]["weapon"]
 
-    armor = player["equipment"]["armor"]
+    weapon = player[
+        "equipment"
+    ]["weapon"]
 
-    accessory = player["equipment"]["accessory"]
+
+    armor = player[
+        "equipment"
+    ]["armor"]
+
+
+    accessory = player[
+        "equipment"
+    ]["accessory"]
 
 
     st.markdown(
         "### 현재 장비"
     )
+
 
     st.write(
         f"⚔️ 무기: "
@@ -2214,18 +2810,21 @@ with tab_inventory:
         f"+{weapon['enhance']}**"
     )
 
+
     st.write(
         f"🛡️ 갑옷: "
         f"**{armor['name']}**"
     )
+
 
     st.write(
         f"💍 악세사리: "
         f"**{accessory['name']}**"
     )
 
+
     st.write(
-        f"🔵 악세사리 마나: "
+        f"🔵 악세사리 MP: "
         f"**+{accessory.get('mana', 0)}**"
     )
 
@@ -2233,15 +2832,21 @@ with tab_inventory:
     st.divider()
 
 
+    # 무기
+
     st.markdown(
         "### ⚔️ 보유 무기"
     )
 
-    if not player["inventory"]["weapons"]:
+
+    if not player[
+        "inventory"
+    ]["weapons"]:
 
         st.info(
             "보유한 무기가 없습니다."
         )
+
 
     for i, item in enumerate(
         player["inventory"]["weapons"]
@@ -2251,12 +2856,14 @@ with tab_inventory:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
                 f"{item['name']} "
                 f"| 공격 +{item['attack']}"
             )
+
 
         with col2:
 
@@ -2273,15 +2880,21 @@ with tab_inventory:
                 st.rerun()
 
 
+    # 갑옷
+
     st.markdown(
         "### 🛡️ 보유 갑옷"
     )
 
-    if not player["inventory"]["armors"]:
+
+    if not player[
+        "inventory"
+    ]["armors"]:
 
         st.info(
             "보유한 갑옷이 없습니다."
         )
+
 
     for i, item in enumerate(
         player["inventory"]["armors"]
@@ -2291,12 +2904,14 @@ with tab_inventory:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
                 f"{item['name']} "
                 f"| 방어 +{item['defense']}"
             )
+
 
         with col2:
 
@@ -2313,15 +2928,21 @@ with tab_inventory:
                 st.rerun()
 
 
+    # 악세사리
+
     st.markdown(
         "### 💍 보유 악세사리"
     )
 
-    if not player["inventory"]["accessories"]:
+
+    if not player[
+        "inventory"
+    ]["accessories"]:
 
         st.info(
             "보유한 악세사리가 없습니다."
         )
+
 
     for i, item in enumerate(
         player["inventory"]["accessories"]
@@ -2331,6 +2952,7 @@ with tab_inventory:
             [3, 1]
         )
 
+
         with col1:
 
             st.write(
@@ -2339,6 +2961,7 @@ with tab_inventory:
                 f"| 🛡️ +{item.get('defense', 0)} "
                 f"| 🔵 MP +{item.get('mana', 0)}"
             )
+
 
         with col2:
 
@@ -2357,6 +2980,7 @@ with tab_inventory:
 
     st.divider()
 
+
     st.write(
         f"🧪 포션: "
         f"**{player['potions']}개**"
@@ -2373,13 +2997,26 @@ with tab_upgrade:
         "🔨 무기 강화"
     )
 
-    weapon = player["equipment"]["weapon"]
 
-    level = weapon["enhance"]
+    weapon = player[
+        "equipment"
+    ]["weapon"]
 
-    cost = enhancement_cost(level)
 
-    success_rate = enhancement_success_rate(level)
+    level = safe_int(
+        weapon.get("enhance"),
+        0
+    )
+
+
+    cost = enhancement_cost(
+        level
+    )
+
+
+    success_rate = enhancement_success_rate(
+        level
+    )
 
 
     st.write(
@@ -2387,27 +3024,33 @@ with tab_upgrade:
         f"**{weapon['name']} +{level}**"
     )
 
+
     st.write(
         f"기본 공격력: "
         f"**{weapon['attack']}**"
     )
 
+
     st.write(
-        f"강화 보너스: "
+        f"강화 공격력 보너스: "
         f"**+{level * 3}**"
     )
 
+
     st.divider()
+
 
     st.write(
         f"🪙 강화 비용: "
         f"**{cost} 코인**"
     )
 
+
     st.write(
         f"🎯 성공 확률: "
         f"**{success_rate}%**"
     )
+
 
     if st.button(
         f"🔨 +{level + 1} 강화",
@@ -2418,14 +3061,15 @@ with tab_upgrade:
 
         st.rerun()
 
+
     st.info(
         "강화 단계가 높아질수록 성공 확률이 감소합니다. "
-        "+3 이상에서 실패하면 강화 단계가 하락할 수 있습니다."
+        "+3 이상에서 강화 실패 시 단계가 내려갈 수 있습니다."
     )
 
 
 # =========================================================
-# 모험 기록
+# 로그
 # =========================================================
 
 st.divider()
@@ -2433,6 +3077,7 @@ st.divider()
 st.subheader(
     "📜 모험 기록"
 )
+
 
 for log in reversed(
     st.session_state.logs
