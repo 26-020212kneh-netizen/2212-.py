@@ -263,43 +263,34 @@ def init_game():
 
             "name": "용사",
 
-            # 레벨
             "level": 1,
             "exp": 0,
-
-            # 스탯 포인트
             "stat_points": 5,
 
-            # 스탯
             "strength": 10,
             "vitality": 10,
             "defense": 5,
             "agility": 5,
-
-            # 정신력
             "spirit": 0,
 
-            # HP
             "hp": 200,
 
-            # 경제
+            # 🔵 마나 추가
+            "mana": 50,
+
             "coins": 200,
             "potions": 3,
 
-            # 던전
             "floor": 1,
 
-            # 전투 상태
             "defending": False,
 
-            # 인벤토리
             "inventory": {
                 "weapons": [],
                 "armors": [],
                 "accessories": []
             },
 
-            # 장비
             "equipment": {
 
                 "weapon": {
@@ -322,6 +313,92 @@ def init_game():
             }
         }
 
+    # ====================================
+    # 기존 세이브 데이터 자동 보정
+    # ====================================
+
+    player = st.session_state.player
+
+    if "mana" not in player:
+        player["mana"] = 50
+
+    if "spirit" not in player:
+        player["spirit"] = 0
+
+    if "stat_points" not in player:
+        player["stat_points"] = 0
+
+    if "defending" not in player:
+        player["defending"] = False
+
+    if "inventory" not in player:
+
+        player["inventory"] = {
+            "weapons": [],
+            "armors": [],
+            "accessories": []
+        }
+
+    if "weapons" not in player["inventory"]:
+        player["inventory"]["weapons"] = []
+
+    if "armors" not in player["inventory"]:
+        player["inventory"]["armors"] = []
+
+    if "accessories" not in player["inventory"]:
+        player["inventory"]["accessories"] = []
+
+    if "equipment" not in player:
+
+        player["equipment"] = {
+
+            "weapon": {
+                "name": "나무 검",
+                "attack": 5,
+                "enhance": 0
+            },
+
+            "armor": {
+                "name": "낡은 옷",
+                "defense": 0
+            },
+
+            "accessory": {
+                "name": "없음",
+                "attack": 0,
+                "defense": 0,
+                "mana": 0
+            }
+        }
+
+    if "weapon" not in player["equipment"]:
+
+        player["equipment"]["weapon"] = {
+            "name": "나무 검",
+            "attack": 5,
+            "enhance": 0
+        }
+
+    if "armor" not in player["equipment"]:
+
+        player["equipment"]["armor"] = {
+            "name": "낡은 옷",
+            "defense": 0
+        }
+
+    if "accessory" not in player["equipment"]:
+
+        player["equipment"]["accessory"] = {
+            "name": "없음",
+            "attack": 0,
+            "defense": 0,
+            "mana": 0
+        }
+
+    # 기존 악세사리에 mana가 없을 경우
+    if "mana" not in player["equipment"]["accessory"]:
+        player["equipment"]["accessory"]["mana"] = 0
+
     if "enemy" not in st.session_state:
         st.session_state.enemy = None
 
@@ -333,7 +410,6 @@ def init_game():
 
     if "game_over" not in st.session_state:
         st.session_state.game_over = False
-
 
 init_game()
 
@@ -357,23 +433,37 @@ def get_max_hp():
 
 def get_max_mana():
 
+   def get_max_mana():
+
     player = st.session_state.player
 
-    accessory = player["equipment"]["accessory"]
+    spirit = player.get(
+        "spirit",
+        0
+    )
+
+    accessory = player.get(
+        "equipment",
+        {}
+    ).get(
+        "accessory",
+        {}
+    )
 
     accessory_mana = accessory.get(
         "mana",
         0
     )
 
-    # 기본 마나 50
+    # 기본 50
     # 정신력 1당 +5
     # 악세사리 +5~15
     return (
         50
-        + player["spirit"] * 5
+        + spirit * 5
         + accessory_mana
     )
+
 
 
 # =========================================================
