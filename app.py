@@ -1,545 +1,433 @@
+import random
 import streamlit as st
-import streamlit.components.v1 as components
+
+# -----------------------------
+# 기본 설정
+# -----------------------------
 
 st.set_page_config(
-    page_title="Stage Pinball",
-    page_icon="🎯",
+    page_title="잊혀진 던전",
+    page_icon="⚔️",
     layout="centered"
 )
 
-st.title("🎯 Stage Pinball")
-st.write("벽돌을 모두 제거하고 다음 스테이지로 진입하세요!")
+# -----------------------------
+# 게임 데이터
+# -----------------------------
 
-game_html = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-
-<style>
-    body {
-        margin: 0;
-        background: #111827;
-        color: white;
-        font-family: Arial, sans-serif;
-        text-align: center;
+ENEMIES = [
+    {
+        "name": "슬라임",
+        "hp": 30,
+        "attack": 7,
+        "gold": 10,
+        "exp": 15
+    },
+    {
+        "name": "고블린",
+        "hp": 45,
+        "attack": 10,
+        "gold": 20,
+        "exp": 25
+    },
+    {
+        "name": "해골 전사",
+        "hp": 60,
+        "attack": 13,
+        "gold": 30,
+        "exp": 35
     }
-
-    #game {
-        background: #020617;
-        border: 3px solid #38bdf8;
-        border-radius: 10px;
-        display: block;
-        margin: 10px auto;
-    }
-
-    .info {
-        display: flex;
-        justify-content: center;
-        gap: 25px;
-        margin: 10px;
-        font-size: 18px;
-    }
-
-    button {
-        background: #2563eb;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-    }
-
-    button:hover {
-        background: #1d4ed8;
-    }
-</style>
-</head>
-
-<body>
-
-<div class="info">
-    <div>Stage: <span id="stage">1</span></div>
-    <div>Score: <span id="score">0</span></div>
-    <div>Lives: <span id="lives">3</span></div>
-</div>
-
-<canvas id="game" width="480" height="640"></canvas>
-
-<button onclick="restartGame()">Restart</button>
-
-<script>
-
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-
-const WIDTH = canvas.width;
-const HEIGHT = canvas.height;
-
-let stage = 1;
-let score = 0;
-let lives = 3;
-
-let gameOver = false;
-let stageClear = false;
-
-const keys = {};
-
-document.addEventListener("keydown", e => {
-    keys[e.key.toLowerCase()] = true;
-
-    if (e.key.toLowerCase() === "r") {
-        restartGame();
-    }
-});
-
-document.addEventListener("keyup", e => {
-    keys[e.key.toLowerCase()] = false;
-});
+]
 
 
-// ==============================
-// 공
-// ==============================
+# -----------------------------
+# 세션 상태 초기화
+# -----------------------------
 
-let ball = {
-    x: WIDTH / 2,
-    y: HEIGHT - 100,
-    radius: 9,
-    vx: 3,
-    vy: -5
-};
-
-
-// ==============================
-// 패들
-// ==============================
-
-const paddle = {
-    x: WIDTH / 2 - 50,
-    y: HEIGHT - 40,
-    width: 100,
-    height: 12,
-    speed: 7
-};
-
-
-// ==============================
-// 벽돌
-// ==============================
-
-let bricks = [];
-
-function createBricks() {
-
-    bricks = [];
-
-    const rows = 3 + stage;
-    const cols = 6;
-
-    const brickWidth = 60;
-    const brickHeight = 20;
-
-    const startX = 45;
-    const startY = 70;
-
-    for (let row = 0; row < rows; row++) {
-
-        for (let col = 0; col < cols; col++) {
-
-            bricks.push({
-                x: startX + col * 65,
-                y: startY + row * 30,
-                width: brickWidth,
-                height: brickHeight,
-                alive: true
-            });
-
+def init_game():
+    if "player" not in st.session_state:
+        st.session_state.player = {
+            "name": "용사",
+            "level": 1,
+            "exp": 0,
+            "max_hp": 100,
+            "hp": 100,
+            "attack": 15,
+            "gold": 0,
+            "potions": 3,
+            "floor": 1
         }
-    }
-}
 
+    if "enemy" not in st.session_state:
+        st.session_state.enemy = None
 
-// ==============================
-// 게임 초기화
-// ==============================
+    if "logs" not in st.session_state:
+        st.session_state.logs = [
+            "🏰 잊혀진 던전에 입장했습니다."
+        ]
 
-function resetBall() {
+    if "game_over" not in st.session_state:
+        st.session_state.game_over = False
 
-    ball.x = WIDTH / 2;
-    ball.y = HEIGHT - 100;
 
-    const speed = 4 + stage * 0.7;
+init_game()
 
-    ball.vx = speed * (Math.random() > 0.5 ? 1 : -1);
-    ball.vy = -speed;
-}
 
+# -----------------------------
+# 유틸리티
+# -----------------------------
 
-function startStage() {
+def add_log(message):
+    st.session_state.logs.append(message)
 
-    stageClear = false;
+    # 로그가 너무 길어지지 않도록 제한
+    if len(st.session_state.logs) > 12:
+        st.session_state.logs.pop(0)
 
-    createBricks();
-    resetBall();
 
-    document.getElementById("stage").textContent = stage;
-}
+def create_enemy():
+    template = random.choice(ENEMIES)
 
+    enemy = template.copy()
 
-// ==============================
-// 충돌 판정
-// ==============================
+    # 던전 층에 따라 적 강화
+    floor = st.session_state.player["floor"]
 
-function collision(a, b) {
+    enemy["hp"] += (floor - 1) * 10
+    enemy["max_hp"] = enemy["hp"]
+    enemy["attack"] += (floor - 1) * 2
 
-    return (
-        a.x + a.radius > b.x &&
-        a.x - a.radius < b.x + b.width &&
-        a.y + a.radius > b.y &&
-        a.y - a.radius < b.y + b.height
-    );
-}
+    return enemy
 
 
-// ==============================
-// 업데이트
-// ==============================
+def spawn_enemy():
+    if st.session_state.enemy is None:
+        st.session_state.enemy = create_enemy()
 
-function update() {
+        add_log(
+            f"👹 {st.session_state.enemy['name']}이(가) 나타났습니다!"
+        )
 
-    if (gameOver || stageClear) {
-        return;
-    }
 
-    // 패들 이동
-    if (keys["arrowleft"] || keys["a"]) {
-        paddle.x -= paddle.speed;
-    }
+def gain_exp(amount):
+    player = st.session_state.player
 
-    if (keys["arrowright"] || keys["d"]) {
-        paddle.x += paddle.speed;
-    }
+    player["exp"] += amount
 
-    paddle.x = Math.max(
-        0,
-        Math.min(WIDTH - paddle.width, paddle.x)
-    );
+    required_exp = player["level"] * 50
 
+    if player["exp"] >= required_exp:
+        player["exp"] -= required_exp
+        player["level"] += 1
 
-    // 공 이동
-    ball.x += ball.vx;
-    ball.y += ball.vy;
+        player["max_hp"] += 20
+        player["hp"] = player["max_hp"]
+        player["attack"] += 5
 
+        add_log(
+            f"✨ 레벨 업! Lv.{player['level']}이 되었습니다."
+        )
 
-    // 벽 충돌
 
-    if (ball.x - ball.radius < 0) {
-        ball.x = ball.radius;
-        ball.vx *= -1;
-    }
+# -----------------------------
+# 전투
+# -----------------------------
 
-    if (ball.x + ball.radius > WIDTH) {
-        ball.x = WIDTH - ball.radius;
-        ball.vx *= -1;
-    }
+def attack():
+    player = st.session_state.player
+    enemy = st.session_state.enemy
 
-    if (ball.y - ball.radius < 0) {
-        ball.y = ball.radius;
-        ball.vy *= -1;
-    }
+    if enemy is None:
+        spawn_enemy()
+        return
 
+    damage = random.randint(
+        max(1, player["attack"] - 4),
+        player["attack"] + 5
+    )
 
-    // 패들 충돌
+    enemy["hp"] -= damage
 
-    if (collision(ball, paddle) && ball.vy > 0) {
+    add_log(
+        f"⚔️ {enemy['name']}에게 {damage}의 피해를 입혔습니다."
+    )
 
-        ball.y = paddle.y - ball.radius;
+    # 적 처치
+    if enemy["hp"] <= 0:
+        gold = enemy["gold"]
+        exp = enemy["exp"]
 
-        ball.vy *= -1;
+        player["gold"] += gold
 
-        // 패들의 어느 위치에 맞았는지에 따라 방향 변경
-        const hitPosition =
-            (ball.x - paddle.x) / paddle.width;
+        add_log(
+            f"💀 {enemy['name']} 처치!"
+        )
 
-        ball.vx = (hitPosition - 0.5) * 10;
-    }
+        add_log(
+            f"💰 골드 +{gold} / ⭐ 경험치 +{exp}"
+        )
 
+        gain_exp(exp)
 
-    // 벽돌 충돌
+        # 다음 층
+        player["floor"] += 1
 
-    for (let brick of bricks) {
+        add_log(
+            f"🚪 던전 {player['floor']}층으로 이동합니다."
+        )
 
-        if (!brick.alive) continue;
+        st.session_state.enemy = None
+        return
 
-        if (collision(ball, brick)) {
+    # 적의 반격
+    enemy_attack()
 
-            brick.alive = false;
 
-            ball.vy *= -1;
+def enemy_attack():
+    player = st.session_state.player
+    enemy = st.session_state.enemy
 
-            score += 100;
+    damage = random.randint(
+        max(1, enemy["attack"] - 3),
+        enemy["attack"] + 3
+    )
 
-            document.getElementById("score")
-                .textContent = score;
+    player["hp"] -= damage
 
-            break;
-        }
-    }
+    add_log(
+        f"💥 {enemy['name']}의 공격! "
+        f"{damage}의 피해를 받았습니다."
+    )
 
+    if player["hp"] <= 0:
+        player["hp"] = 0
+        st.session_state.game_over = True
 
-    // 모든 벽돌 제거
-    const remaining = bricks.filter(
-        brick => brick.alive
-    ).length;
+        add_log("☠️ 당신은 던전에서 쓰러졌습니다.")
 
-    if (remaining === 0) {
 
-        stageClear = true;
+def use_potion():
+    player = st.session_state.player
 
-        setTimeout(() => {
+    if player["potions"] <= 0:
+        add_log("❌ 포션이 없습니다.")
+        return
 
-            if (stage < 5) {
+    if player["hp"] >= player["max_hp"]:
+        add_log("❤️ 체력이 이미 가득합니다.")
+        return
 
-                stage++;
+    heal = 30
 
-                startStage();
+    player["hp"] = min(
+        player["max_hp"],
+        player["hp"] + heal
+    )
 
-            } else {
+    player["potions"] -= 1
 
-                gameOver = true;
+    add_log(
+        f"🧪 포션 사용! HP +{heal}"
+    )
 
-            }
+    # 포션 사용 후 적 반격
+    if st.session_state.enemy:
+        enemy_attack()
 
-        }, 1500);
-    }
 
+def rest():
+    player = st.session_state.player
 
-    // 공이 바닥으로 떨어짐
+    heal = 15
 
-    if (ball.y > HEIGHT) {
+    player["hp"] = min(
+        player["max_hp"],
+        player["hp"] + heal
+    )
 
-        lives--;
+    add_log(
+        f"🔥 잠시 휴식했습니다. HP +{heal}"
+    )
 
-        document.getElementById("lives")
-            .textContent = lives;
+    if st.session_state.enemy:
+        enemy_attack()
 
-        if (lives <= 0) {
 
-            gameOver = true;
+def restart_game():
+    for key in [
+        "player",
+        "enemy",
+        "logs",
+        "game_over"
+    ]:
+        if key in st.session_state:
+            del st.session_state[key]
 
-        } else {
+    init_game()
 
-            resetBall();
-        }
-    }
-}
 
+# -----------------------------
+# 화면
+# -----------------------------
 
-// ==============================
-// 그리기
-// ==============================
+st.title("⚔️ 잊혀진 던전")
+st.caption("텍스트 로그라이크 RPG")
 
-function draw() {
+player = st.session_state.player
+enemy = st.session_state.enemy
 
-    ctx.clearRect(
-        0,
-        0,
-        WIDTH,
-        HEIGHT
-    );
 
+# -----------------------------
+# 플레이어 정보
+# -----------------------------
 
-    // 배경
+st.subheader("🧙 플레이어")
 
-    ctx.fillStyle = "#020617";
+col1, col2, col3 = st.columns(3)
 
-    ctx.fillRect(
-        0,
-        0,
-        WIDTH,
-        HEIGHT
-    );
+with col1:
+    st.metric(
+        "레벨",
+        player["level"]
+    )
 
+with col2:
+    st.metric(
+        "공격력",
+        player["attack"]
+    )
 
-    // 벽돌
+with col3:
+    st.metric(
+        "골드",
+        player["gold"]
+    )
 
-    for (let brick of bricks) {
 
-        if (!brick.alive) continue;
+# HP 표시
 
-        const colors = [
-            "#ef4444",
-            "#f97316",
-            "#eab308",
-            "#22c55e",
-            "#06b6d4",
-            "#3b82f6"
-        ];
-
-        ctx.fillStyle =
-            colors[stage % colors.length];
-
-        ctx.fillRect(
-            brick.x,
-            brick.y,
-            brick.width,
-            brick.height
-        );
-    }
-
-
-    // 패들
-
-    ctx.fillStyle = "#38bdf8";
-
-    ctx.fillRect(
-        paddle.x,
-        paddle.y,
-        paddle.width,
-        paddle.height
-    );
-
-
-    // 공
-
-    ctx.beginPath();
-
-    ctx.arc(
-        ball.x,
-        ball.y,
-        ball.radius,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fillStyle = "#ffffff";
-
-    ctx.fill();
-
-    ctx.closePath();
-
-
-    // 스테이지 클리어
-
-    if (stageClear) {
-
-        ctx.fillStyle =
-            "rgba(0,0,0,0.7)";
-
-        ctx.fillRect(
-            0,
-            0,
-            WIDTH,
-            HEIGHT
-        );
-
-        ctx.fillStyle = "#22c55e";
-
-        ctx.font = "32px Arial";
-
-        ctx.textAlign = "center";
-
-        ctx.fillText(
-            "STAGE CLEAR!",
-            WIDTH / 2,
-            HEIGHT / 2
-        );
-    }
-
-
-    // 게임 오버
-
-    if (gameOver) {
-
-        ctx.fillStyle =
-            "rgba(0,0,0,0.75)";
-
-        ctx.fillRect(
-            0,
-            0,
-            WIDTH,
-            HEIGHT
-        );
-
-        ctx.fillStyle = "#ef4444";
-
-        ctx.font = "36px Arial";
-
-        ctx.textAlign = "center";
-
-        if (stage >= 5) {
-
-            ctx.fillText(
-                "🎉 YOU WIN!",
-                WIDTH / 2,
-                HEIGHT / 2
-            );
-
-        } else {
-
-            ctx.fillText(
-                "GAME OVER",
-                WIDTH / 2,
-                HEIGHT / 2
-            );
-        }
-    }
-}
-
-
-// ==============================
-// 게임 루프
-// ==============================
-
-function gameLoop() {
-
-    update();
-    draw();
-
-    requestAnimationFrame(gameLoop);
-}
-
-
-// ==============================
-// 재시작
-// ==============================
-
-function restartGame() {
-
-    stage = 1;
-    score = 0;
-    lives = 3;
-
-    gameOver = false;
-    stageClear = false;
-
-    document.getElementById("stage")
-        .textContent = stage;
-
-    document.getElementById("score")
-        .textContent = score;
-
-    document.getElementById("lives")
-        .textContent = lives;
-
-    startStage();
-}
-
-
-// 시작
-startStage();
-gameLoop();
-
-</script>
-
-</body>
-</html>
-"""
-
-components.html(
-    game_html,
-    height=750,
-    scrolling=False
+st.write(
+    f"❤️ HP: {player['hp']} / {player['max_hp']}"
 )
+
+st.progress(
+    player["hp"] / player["max_hp"]
+)
+
+required_exp = player["level"] * 50
+
+st.write(
+    f"⭐ EXP: {player['exp']} / {required_exp}"
+)
+
+st.progress(
+    player["exp"] / required_exp
+)
+
+st.write(
+    f"🏰 던전 {player['floor']}층"
+)
+
+st.divider()
+
+
+# -----------------------------
+# 적 정보
+# -----------------------------
+
+if enemy:
+    st.subheader("👹 적")
+
+    st.write(
+        f"### {enemy['name']}"
+    )
+
+    st.write(
+        f"❤️ HP: {enemy['hp']} / {enemy['max_hp']}"
+    )
+
+    st.progress(
+        max(0, enemy["hp"]) / enemy["max_hp"]
+    )
+
+else:
+    st.info(
+        "현재 전투 중인 적이 없습니다."
+    )
+
+
+# -----------------------------
+# 게임 오버
+# -----------------------------
+
+if st.session_state.game_over:
+
+    st.error(
+        "☠️ GAME OVER"
+    )
+
+    st.write(
+        f"최종 도달 층: {player['floor']}"
+    )
+
+    st.write(
+        f"최종 레벨: {player['level']}"
+    )
+
+    if st.button(
+        "🔄 다시 시작",
+        use_container_width=True
+    ):
+        restart_game()
+        st.rerun()
+
+else:
+
+    # 적이 없으면 탐험 버튼
+    if enemy is None:
+
+        if st.button(
+            "🚪 다음 방 탐험",
+            use_container_width=True
+        ):
+            spawn_enemy()
+            st.rerun()
+
+    else:
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            if st.button(
+                "⚔️ 공격",
+                use_container_width=True
+            ):
+                attack()
+                st.rerun()
+
+        with col2:
+            if st.button(
+                "🧪 포션",
+                use_container_width=True
+            ):
+                use_potion()
+                st.rerun()
+
+        if st.button(
+            "🔥 휴식",
+            use_container_width=True
+        ):
+            rest()
+            st.rerun()
+
+
+# -----------------------------
+# 로그
+# -----------------------------
+
+st.divider()
+
+st.subheader("📜 모험 기록")
+
+for log in reversed(st.session_state.logs):
+    st.write(log)
